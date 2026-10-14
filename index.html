@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OmniConvert — Every format, everywhere. Zero loss.</title>
+<link rel="stylesheet" href="styles.css?v=8">
+<!-- Conversion libraries (vendored locally: works offline and as a browser extension) -->
+<script defer src="vendor/pdf.min.js"></script>
+<script defer src="vendor/pdf-lib.min.js"></script>
+<script defer src="vendor/mammoth.browser.min.js"></script>
+<script defer src="vendor/xlsx.full.min.js"></script>
+<script defer src="vendor/marked.min.js"></script>
+<script defer src="vendor/turndown.min.js"></script>
+<script defer src="vendor/jspdf.umd.min.js"></script>
+<script defer src="vendor/jszip.min.js"></script>
+<script defer src="vendor/lame.min.js"></script>
+<script defer src="app.js?v=14"></script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="logo"><span class="bolt">⚡</span> OmniConvert</div>
+  <div class="tagline">Every format → every format. Zero text loss.</div>
+  <div class="badge" id="comboBadge" title="Direct + chained conversion paths available right now">…</div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button class="tab active" data-tab="convert">🔄 Convert</button>
+  <button class="tab" data-tab="merge">🧩 Merge to PDF</button>
+  <button class="tab" data-tab="pdftools">📑 PDF Split &amp; Edit</button>
+  <button class="tab" data-tab="studio">🎨 Image Studio</button>
+  <button class="tab" data-tab="editor">✏️ Editor</button>
+  <button class="tab" data-tab="ai">🤖 AI</button>
+</nav>
+
+<main>
+
+  <!-- ===================== CONVERT ===================== -->
+  <section class="tabpane active" id="tab-convert">
+    <div class="drop" id="dropConvert">
+      <div class="drop-ico">📥</div>
+      <div class="drop-title">Drop files here or click to browse</div>
+      <div class="drop-sub">PDF · Word · Excel · PowerPoint · LaTeX · ePub · CSV · JSON · XML · Markdown · HTML · RTF · PNG · JPG · WebP · BMP · GIF · SVG · MP3 · WAV · MP4 · WebM<br>with OCR for scans, MP4/WebM transcoding &amp; AES-256 encryption — all in your browser</div>
+      <input type="file" id="fileInput" multiple hidden>
+    </div>
+    <div class="url-row">
+      <input type="url" id="urlInput" placeholder="…or import from a URL (https://example.com/report.pdf)">
+      <button id="urlBtn">Import</button>
+    </div>
+
+    <div class="card" id="workflowCard">
+      <h3>⚡ One-click workflows <span class="hint">click a task — it converts loaded files, or asks you to pick one</span></h3>
+      <div class="wf-grid" id="wfGrid"></div>
+    </div>
+
+    <div id="fileList" class="file-list"></div>
+
+    <div class="card pipeline-card hidden" id="pipelineCard">
+      <h3>🛠 Conversion pipeline <span class="hint">chain steps for multi-hop conversions, e.g. PDF → Word → HTML</span></h3>
+      <div class="pipeline" id="pipelineSteps"></div>
+      <div class="pipe-actions">
+        <button id="addStepBtn" class="ghost">＋ Add chained step</button>
+        <label class="opt">Image quality
+          <input type="range" id="qualitySlider" min="50" max="100" value="92">
+          <span id="qualityVal">92%</span>
+        </label>
+        <label class="opt" title="Uses the four AI agents to clean OCR output, repair extracted tables, and automatically retry failed conversions via another route. Needs an API key in the AI tab.">
+          <input type="checkbox" id="aiBoostChk"> 🤖 AI boost — agents auto-fix errors
+        </label>
+      </div>
+      <button id="convertBtn" class="primary big">⚡ Convert all</button>
+      <div class="status" id="convertStatus"></div>
+    </div>
+
+    <div class="card hidden" id="resultsCard">
+      <h3>✅ Results</h3>
+      <div id="resultList" class="result-list"></div>
+    </div>
+  </section>
+
+  <!-- ===================== MERGE ===================== -->
+  <section class="tabpane" id="tab-merge">
+    <div class="drop" id="dropMerge">
+      <div class="drop-ico">🧩</div>
+      <div class="drop-title">Drop PDFs, images, documents or spreadsheets</div>
+      <div class="drop-sub">Everything is combined — in order — into a single PDF</div>
+      <input type="file" id="mergeInput" multiple hidden>
+    </div>
+    <div id="mergeList" class="file-list"></div>
+    <button id="mergeBtn" class="primary big hidden">🧩 Merge into one PDF</button>
+    <div class="status" id="mergeStatus"></div>
+    <div class="card hidden" id="mergeResultsCard">
+      <h3>✅ Merged result</h3>
+      <div id="mergeResultList" class="result-list"></div>
+    </div>
+  </section>
+
+  <!-- ===================== PDF TOOLS ===================== -->
+  <section class="tabpane" id="tab-pdftools">
+    <div class="drop" id="dropPdf">
+      <div class="drop-ico">📑</div>
+      <div class="drop-title">Drop a PDF to split, reorder, rotate or delete pages</div>
+      <input type="file" id="pdfInput" accept="application/pdf" hidden>
+    </div>
+    <div class="card hidden" id="pdfToolsCard">
+      <h3 id="pdfToolsTitle">Pages</h3>
+      <div class="pdf-actions">
+        <button id="pdfSelectAll" class="ghost">Select all</button>
+        <button id="pdfRotateSel" class="ghost">↻ Rotate selected</button>
+        <button id="pdfDeleteSel" class="ghost danger">🗑 Delete selected</button>
+        <button id="pdfExtractSel">📤 Extract selected → PDF</button>
+        <button id="pdfSplitAll">✂️ Split into single pages</button>
+        <button id="pdfApply" class="primary">💾 Apply edits &amp; save</button>
+      </div>
+      <div class="pdf-actions">
+        <label class="opt">🗜 Compression
+          <select id="pdfCompressMode">
+            <option value="strong">Strong — 110 DPI, smallest file</option>
+            <option value="balanced" selected>Balanced — 150 DPI</option>
+            <option value="hq">High quality — 200 DPI</option>
+            <option value="lossless">Lossless optimize — structure only, text stays selectable</option>
+          </select>
+        </label>
+        <label class="opt">Quality
+          <input type="range" id="pdfCompressQ" min="40" max="90" value="70">
+          <span id="pdfCompressQVal">70%</span>
+        </label>
+        <button id="pdfCompressBtn" class="primary">🗜 Compress PDF</button>
+      </div>
+      <div id="pdfPages" class="pdf-grid"></div>
+      <div class="status" id="pdfStatus"></div>
+    </div>
+    <div class="card hidden" id="pdfAnnotCard">
+      <h3 id="pdfAnnotTitle">✏️ Annotate page</h3>
+      <div class="toolbar">
+        <button data-ptool="pen" class="ptool active">✏️ Pen</button>
+        <button data-ptool="highlight" class="ptool">🖍 Highlight</button>
+        <button data-ptool="text" class="ptool">🔤 Text</button>
+        <button data-ptool="white" class="ptool">⬜ Whiteout</button>
+        <input type="color" id="pdfAnnotColor" value="#ff2d55" title="Ink colour">
+        <label>Size <input type="range" id="pdfAnnotSize" min="2" max="16" value="4"></label>
+        <button id="pdfAnnotUndo">↶ Undo</button>
+        <button id="pdfAnnotClear">🧹 Clear</button>
+        <span class="spacer"></span>
+        <button id="pdfAnnotCancel">✖ Cancel</button>
+        <button id="pdfAnnotDone" class="primary">✔ Done</button>
+      </div>
+      <div class="studio-box" id="pdfAnnotBox"></div>
+    </div>
+    <div class="card hidden" id="pdfResultsCard">
+      <h3>✅ PDF results</h3>
+      <div id="pdfResultList" class="result-list"></div>
+    </div>
+  </section>
+
+  <!-- ===================== IMAGE STUDIO ===================== -->
+  <section class="tabpane" id="tab-studio">
+    <div class="drop compact" id="dropStudio">
+      <div class="drop-title">🎨 Drop an image (PNG, JPG, WebP, BMP, GIF, SVG…) to edit it — crop, annotate, adjust, extract</div>
+      <input type="file" id="studioInput" accept="image/*" hidden>
+    </div>
+    <div class="card hidden" id="studioCard">
+      <div class="toolbar">
+        <button data-stool="pen" class="stool active">✏️ Pen</button>
+        <button data-stool="highlight" class="stool">🖍 Highlight</button>
+        <button data-stool="text" class="stool">🔤 Text</button>
+        <button data-stool="white" class="stool">⬜ Whiteout</button>
+        <button data-stool="crop" class="stool">✂️ Crop</button>
+        <input type="color" id="studioColor" value="#ff2d55" title="Ink colour">
+        <label>Size <input type="range" id="studioSize" min="2" max="16" value="4"></label>
+        <button id="studioUndo">↶ Undo</button>
+        <button id="studioClear">🧹 Clear ink</button>
+        <span class="spacer"></span>
+        <button id="studioRotate">↻ Rotate 90°</button>
+        <button id="studioFlip">⇋ Flip</button>
+        <label>Width <input type="number" id="studioW" min="8" style="width:84px"></label>
+        <button id="studioResize" class="small">Apply size</button>
+      </div>
+      <div class="toolbar">
+        <label>☀️ Brightness <input type="range" id="studioBright" min="40" max="180" value="100"></label>
+        <label>◐ Contrast <input type="range" id="studioContrast" min="40" max="180" value="100"></label>
+        <span class="spacer"></span>
+        <button id="studioTable">📊 Extract table → CSV</button>
+        <label>Save as <select id="studioFmt"></select></label>
+        <button id="studioSave" class="primary">💾 Save</button>
+      </div>
+      <div class="studio-box" id="studioBox"></div>
+    </div>
+    <div class="card hidden" id="studioResultsCard">
+      <h3>✅ Studio results</h3>
+      <div id="studioResultList" class="result-list"></div>
+    </div>
+  </section>
+
+  <!-- ===================== EDITOR ===================== -->
+  <section class="tabpane" id="tab-editor">
+    <div class="drop compact" id="dropEdit">
+      <div class="drop-title">📝 Drop a document (PDF, DOCX, MD, HTML, TXT, RTF, CSV, XLSX…) to edit it in-browser</div>
+      <input type="file" id="editInput" hidden>
+    </div>
+    <div class="card hidden" id="editorCard">
+      <div class="toolbar">
+        <button data-cmd="bold"><b>B</b></button>
+        <button data-cmd="italic"><i>I</i></button>
+        <button data-cmd="underline"><u>U</u></button>
+        <button data-block="h1">H1</button>
+        <button data-block="h2">H2</button>
+        <button data-block="p">¶</button>
+        <button data-cmd="insertUnorderedList">• List</button>
+        <button data-cmd="insertOrderedList">1. List</button>
+        <button id="editorImgBtn" title="Insert an image at the cursor">🖼 Image</button>
+        <input type="file" id="editorImgInput" accept="image/*" hidden>
+        <button data-cmd="removeFormat">✖ Clear</button>
+        <button id="collabBtn" title="Mirror this editor live in every open OmniConvert window">👥 Live sync: off</button>
+        <span class="spacer"></span>
+        <label>Save as
+          <select id="editorSaveFmt"></select>
+        </label>
+        <button id="editorSaveBtn" class="primary">💾 Save</button>
+      </div>
+      <div id="editorArea" class="editor" contenteditable="true" spellcheck="true"></div>
+    </div>
+    <div class="card hidden" id="editorResultsCard">
+      <h3>✅ Saved files</h3>
+      <div id="editorResultList" class="result-list"></div>
+    </div>
+  </section>
+
+  <!-- ===================== AI ===================== -->
+  <section class="tabpane" id="tab-ai">
+    <div class="card">
+      <h3>🔑 AI setup <span class="hint">uses your own Anthropic API key — stored only in this browser, calls go directly to the API</span></h3>
+      <div class="url-row">
+        <input type="password" id="aiKey" placeholder="sk-ant-…  (get one at console.anthropic.com)">
+        <select id="aiModel" class="toolbar-select">
+          <option value="claude-sonnet-5" selected>Claude Sonnet 5</option>
+          <option value="claude-fable-5">Claude Fable 5</option>
+          <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5</option>
+        </select>
+        <button id="aiSaveKey">Save</button>
+      </div>
+      <div class="status" id="aiSetupStatus"></div>
+    </div>
+
+    <div class="card">
+      <h3>🤖 Agent 1 — Agentic AI (orchestrator) <span class="hint">plans multi-step jobs, drives the converter's tools, and delegates to the three agents below</span></h3>
+      <div class="url-row">
+        <button id="agentUpBtn" title="Upload files for the agents to work on">📎 Upload</button>
+        <input type="text" id="agentInput" placeholder="e.g. read my report, summarize it with the generative agent, convert the summary to PDF and compress it">
+        <button id="agentRun" class="primary">▶ Run agents</button>
+      </div>
+      <pre class="ai-log hidden" id="agentLog"></pre>
+    </div>
+
+    <div class="card">
+      <h3>📚 Agent 2 — RAG <span class="hint">retrieval-augmented generation: finds the most relevant passages in every loaded file, answers with citations</span></h3>
+      <div class="url-row">
+        <button id="ragUpBtn" title="Upload documents into the knowledge base">📎 Upload</button>
+        <input type="text" id="ragInput" placeholder="ask a question about your uploaded documents…">
+        <button id="ragRun" class="primary">Ask</button>
+      </div>
+      <div class="status" id="ragKbStatus"></div>
+      <div class="ai-answer" id="ragAnswer"></div>
+    </div>
+
+    <div class="card">
+      <h3>✨ Agent 3 — Generative AI <span class="hint">creates and transforms content — output arrives as Markdown, convertible to any format</span></h3>
+      <div class="url-row">
+        <input type="text" id="genDocInput" placeholder="✍️ generate a new document, e.g. a one-page project proposal for a solar farm">
+        <button id="genDocRun">Generate</button>
+      </div>
+      <div class="pdf-actions">
+        <button id="genUpBtn" title="Upload a file to summarize, clean or translate">📎 Upload</button>
+        <select id="aiFileSel" class="toolbar-select"></select>
+        <button id="aiSummarize">📝 Summarize</button>
+        <button id="aiCleanup">🧹 Fix formatting &amp; OCR errors</button>
+        <label class="opt">🌐 Translate to <input type="text" id="aiLang" value="Hindi" style="width:100px"></label>
+        <button id="aiTranslate">Translate</button>
+      </div>
+      <div class="status" id="aiActStatus"></div>
+    </div>
+
+    <div class="card">
+      <h3>🧠 Agent 4 — LLM (direct reasoning) <span class="hint">plain large-language-model Q&amp;A — no files, no tools, just the model</span></h3>
+      <div class="url-row">
+        <input type="text" id="llmInput" placeholder="ask anything — explain a concept, draft an equation, reason through a problem…">
+        <button id="llmRun" class="primary">Ask</button>
+      </div>
+      <div class="ai-answer" id="llmAnswer"></div>
+    </div>
+
+    <div class="card hidden" id="aiResultsCard">
+      <h3>✅ AI results</h3>
+      <div id="aiResultList" class="result-list"></div>
+    </div>
+    <input type="file" id="aiUpInput" multiple hidden>
+  </section>
+
+</main>
+
+<!-- Compare modal -->
+<div class="modal hidden" id="modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3 id="modalTitle">Side-by-side comparison</h3>
+      <button id="modalClose" class="ghost">✖ Close</button>
+    </div>
+    <div class="compare">
+      <div class="pane"><div class="pane-head" id="paneLeftHead">Original</div><div class="pane-body" id="paneLeft"></div></div>
+      <div class="pane"><div class="pane-head" id="paneRightHead">Converted</div><div class="pane-body" id="paneRight"></div></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+</body>
+</html>
